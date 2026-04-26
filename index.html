@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Signal Guardian - BARRIER MODE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { margin: 0; background-color: #020617; color: white; font-family: monospace; transition: background-color 0.3s; }
+        .barrier-active { background-color: #450a0a !important; animation: pulse-red 1s infinite; }
+        @keyframes pulse-red { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body id="mainBody">
+    <div class="p-6">
+        <header class="flex justify-between items-center border-b border-blue-900 pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-blue-500 italic">STEALTH BARRIER SYSTEM</h1>
+            <div id="status" class="px-4 py-1 rounded border border-green-500 text-green-500">SYSTEM NORMAL</div>
+        </header>
+
+        <div id="alertBox" class="hidden mb-6 p-4 bg-red-600 text-white font-bold text-center animate-bounce">
+            警告: ステルス通信を検知！ キャリア回線へのバリアを展開しました。
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="bg-slate-900 p-4 rounded border border-blue-900">
+                <p class="text-xs text-slate-500">UPLOAD SENSOR</p>
+                <p id="upVal" class="text-3xl font-bold text-red-500">0.00 KB/s</p>
+            </div>
+            <div class="bg-slate-900 p-4 rounded border border-blue-900">
+                <p class="text-xs text-slate-500">BARRIER STATUS</p>
+                <p id="barrierVal" class="text-3xl font-bold text-blue-500">INACTIVE</p>
+            </div>
+        </div>
+
+        <div class="h-[300px] bg-slate-900/50 rounded p-4 border border-blue-900">
+            <canvas id="chart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('chart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Traffic', data: [], borderColor: '#3b82f6', tension: 0.4 }] },
+            options: { responsive: true, maintainAspectRatio: false, elements: { point: { radius: 0 } } }
+        });
+
+        function monitor() {
+            fetch('http://127.0.0.1:5000/api/stats')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('upVal').innerText = data.upload + " KB/s";
+                    
+                    if (data.alert) {
+                        document.getElementById('mainBody').classList.add('barrier-active');
+                        document.getElementById('alertBox').classList.remove('hidden');
+                        document.getElementById('status').innerText = "!!! EMERGENCY !!!";
+                        document.getElementById('barrierVal').innerText = "SHUTDOWN ACTIVE";
+                    }
+
+                    chart.data.labels.push(new Date().toLocaleTimeString());
+                    chart.data.datasets[0].data.push(data.upload);
+                    if (chart.data.labels.length > 20) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+                    chart.update('none');
+                })
+                .catch(() => { document.getElementById('status').innerText = "SENSOR DISCONNECTED"; });
+        }
+        setInterval(monitor, 1000);
+    </script>
+</body>
+</html>
